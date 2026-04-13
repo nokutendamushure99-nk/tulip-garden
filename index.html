@@ -3,213 +3,287 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Enchanted Tulip Garden ✨</title>
+<title>Enchanted Tulip Garden 💜</title>
 
 <style>
-body {
-    margin: 0;
-    overflow: hidden;
-    font-family: 'Segoe UI', 'Georgia', serif;
-    background: radial-gradient(circle at 50% 20%, #102a54, #050d1f);
+body { margin:0; overflow:hidden; background:#050d1f; font-family:sans-serif;}
+
+.ui {
+    position:absolute;
+    top:15px;
+    left:15px;
+    z-index:10;
 }
 
-.controls-note {
-    position: absolute;
-    bottom: 20px;
-    right: 20px;
-    color: rgba(255,255,255,0.7);
-    background: rgba(0,0,0,0.35);
-    padding: 6px 14px;
-    border-radius: 30px;
-    font-size: 12px;
-    backdrop-filter: blur(6px);
+button {
+    padding:8px 14px;
+    border:none;
+    border-radius:20px;
+    background:rgba(255,255,255,0.2);
+    color:white;
+    cursor:pointer;
 }
 
-.message {
-    color: #fff8f0;
-    font-size: 20px;
-    text-align: center;
-    padding: 12px 20px;
-    border-radius: 50px;
-    background: rgba(20,20,40,0.4);
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255,200,200,0.2);
-    text-shadow: 0 0 10px rgba(255,105,180,0.6);
+.messageBox {
+    position:absolute;
+    bottom:30px;
+    left:50%;
+    transform:translateX(-50%);
+    padding:12px 20px;
+    border-radius:30px;
+    background:rgba(0,0,0,0.5);
+    color:white;
+    display:none;
+    backdrop-filter: blur(8px);
 }
 </style>
 </head>
 
 <body>
-<div class="controls-note">🌸 drag | scroll</div>
+
+<div class="ui">
+    <button id="musicBtn">🎵 Music</button>
+</div>
+
+<div class="messageBox" id="msgBox"></div>
 
 <script type="importmap">
 {
-  "imports": {
-    "three": "https://unpkg.com/three@0.128.0/build/three.module.js",
-    "three/addons/": "https://unpkg.com/three@0.128.0/examples/jsm/"
-  }
+ "imports": {
+  "three": "https://unpkg.com/three@0.128.0/build/three.module.js",
+  "three/addons/": "https://unpkg.com/three@0.128.0/examples/jsm/"
+ }
 }
 </script>
 
 <script type="module">
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
 
-/* ------------------ SCENE ------------------ */
+/* SCENE */
 const scene = new THREE.Scene();
-scene.fog = new THREE.FogExp2(0x0a1f44, 0.018);
+scene.fog = new THREE.FogExp2(0x0a1f44, 0.02);
 
-/* ------------------ CAMERA ------------------ */
-const camera = new THREE.PerspectiveCamera(45, innerWidth/innerHeight, 0.1, 100);
+/* CAMERA */
+const camera = new THREE.PerspectiveCamera(45, innerWidth/innerHeight,0.1,100);
 camera.position.set(5,4,6);
 
-/* ------------------ RENDERER ------------------ */
-const renderer = new THREE.WebGLRenderer({ antialias:true });
-renderer.setSize(innerWidth, innerHeight);
+/* RENDERER */
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(innerWidth,innerHeight);
 renderer.shadowMap.enabled = true;
 document.body.appendChild(renderer.domElement);
 
-/* ------------------ LABEL RENDERER ------------------ */
-const labelRenderer = new CSS2DRenderer();
-labelRenderer.setSize(innerWidth, innerHeight);
-labelRenderer.domElement.style.position = 'absolute';
-labelRenderer.domElement.style.top = 0;
-document.body.appendChild(labelRenderer.domElement);
-
-/* ------------------ CONTROLS ------------------ */
+/* CONTROLS */
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 
-/* ------------------ LIGHTING (IMPROVED BALANCE) ------------------ */
-scene.add(new THREE.AmbientLight(0x445577, 0.6));
+/* LIGHT */
+scene.add(new THREE.AmbientLight(0x445577,0.7));
 
-const sun = new THREE.DirectionalLight(0xffe8c5, 1.1);
+const sun = new THREE.DirectionalLight(0xffe8c5,1.2);
 sun.position.set(5,8,3);
-sun.castShadow = true;
 scene.add(sun);
 
-const rim = new THREE.PointLight(0xffb6c1, 0.6, 10);
-rim.position.set(-2,3,-3);
-scene.add(rim);
-
-/* ------------------ GROUND ------------------ */
-const ground = new THREE.Mesh(
-    new THREE.CircleGeometry(8, 32),
-    new THREE.MeshStandardMaterial({ color:0x4caf50, roughness:0.9 })
-);
-ground.rotation.x = -Math.PI/2;
-ground.receiveShadow = true;
-scene.add(ground);
-
-/* ------------------ WIND SYSTEM (NEW) ------------------ */
-let windTime = 0;
-function getWindOffset(x,z){
-    return Math.sin(windTime + x*0.5 + z*0.5) * 0.03;
+/* DAY-NIGHT */
+let dayTime = 0;
+function updateSky(){
+    dayTime += 0.001;
+    const t = (Math.sin(dayTime)+1)/2;
+    scene.background = new THREE.Color().lerpColors(
+        new THREE.Color("#050d1f"),
+        new THREE.Color("#87ceeb"),
+        t
+    );
 }
 
-/* ------------------ TULIP ------------------ */
-function createTulip(color){
+/* GROUND */
+const ground = new THREE.Mesh(
+    new THREE.CircleGeometry(8,32),
+    new THREE.MeshStandardMaterial({color:0x4caf50})
+);
+ground.rotation.x = -Math.PI/2;
+scene.add(ground);
+
+/* RAYCAST */
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+
+/* MESSAGES */
+const messages = [
+ "you matter more than you think",
+ "this one reminded me of you",
+ "soft things are still strong",
+ "you deserve gentle love",
+ "i'd pick this one for you"
+];
+
+/* 🌸 TULIP FUNCTION (REAL SHAPE) */
+function createTulip(color, special=false){
     const group = new THREE.Group();
 
     const stem = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.05,0.08,1.2,8),
-        new THREE.MeshStandardMaterial({ color:0x5fad4a })
+        new THREE.CylinderGeometry(0.04,0.06,1.2,8),
+        new THREE.MeshStandardMaterial({color:0x5fad4a})
     );
     stem.position.y = 0.6;
     group.add(stem);
 
-    const petalMat = new THREE.MeshStandardMaterial({
-        color,
-        roughness:0.3,
-        emissive:color,
-        emissiveIntensity:0.1
+    const shape = new THREE.Shape();
+    shape.moveTo(0,0);
+    shape.bezierCurveTo(0.2,0.3, 0.25,0.8, 0,1.2);
+    shape.bezierCurveTo(-0.25,0.8, -0.2,0.3, 0,0);
+
+    const geometry = new THREE.ExtrudeGeometry(shape,{
+        depth:0.05,
+        bevelEnabled:false
     });
 
-    for(let i=0;i<6;i++){
-        const petal = new THREE.Mesh(
-            new THREE.SphereGeometry(0.25,8,8),
-            petalMat
-        );
-        const a = i/6 * Math.PI*2;
-        petal.position.set(Math.cos(a)*0.2,1.2,Math.sin(a)*0.2);
+    const mat = new THREE.MeshStandardMaterial({
+        color,
+        roughness:0.3,
+        emissive: special ? 0x9933ff : color,
+        emissiveIntensity: special ? 0.5 : 0.08,
+        side:THREE.DoubleSide
+    });
+
+    for(let i=0;i<5;i++){
+        const petal = new THREE.Mesh(geometry, mat);
+        const angle = (i/5) * Math.PI * 2;
+
+        petal.position.y = 1.1;
+        petal.rotation.y = angle;
+        petal.rotation.x = Math.PI * 0.15;
+
         group.add(petal);
     }
 
-    group.userData.baseY = group.position.y;
+    for(let i=0;i<3;i++){
+        const petal = new THREE.Mesh(geometry, mat);
+        const angle = (i/3) * Math.PI * 2;
+
+        petal.scale.set(0.8,0.8,0.8);
+        petal.position.y = 1.15;
+        petal.rotation.y = angle + 0.5;
+        petal.rotation.x = Math.PI * 0.2;
+
+        group.add(petal);
+    }
+
+    group.userData.message = special
+        ? "this one is different... just like you 💜"
+        : messages[Math.floor(Math.random()*messages.length)];
+
     return group;
 }
 
-/* ------------------ CREATE FIELD ------------------ */
-const colors = [0xff4d4d,0xffd966,0xffffff,0xcd96ff];
+/* FIELD */
 const tulips = [];
+const colors = [0xff4d4d,0xffd966,0xffffff];
 
-for(let i=0;i<40;i++){
-    const t = createTulip(colors[i%4]);
-    t.position.set(
-        (Math.random()-0.5)*7,
-        0,
-        (Math.random()-0.5)*7
-    );
+for(let i=0;i<30;i++){
+    const t = createTulip(colors[i%3]);
+    t.position.set((Math.random()-0.5)*7,0,(Math.random()-0.5)*7);
     scene.add(t);
     tulips.push(t);
 }
 
-/* ------------------ FLOATING MESSAGE ------------------ */
-const msg = document.createElement('div');
-msg.className = "message";
-msg.innerHTML = `
-even though i can't get them right now,<br>
-you still deserve your own little place 🌸
-`;
-const label = new CSS2DObject(msg);
-label.position.set(0,2.5,0);
-scene.add(label);
+/* SPECIAL PURPLE */
+const specialTulip = createTulip(0xcd96ff,true);
+specialTulip.position.set(0,0,0);
+scene.add(specialTulip);
+tulips.push(specialTulip);
 
-/* ------------------ PARTICLES ------------------ */
-const starsGeo = new THREE.BufferGeometry();
-const starCount = 1000;
-const starPos = new Float32Array(starCount*3);
-
-for(let i=0;i<starCount;i++){
-    starPos[i*3] = (Math.random()-0.5)*10;
-    starPos[i*3+1] = Math.random()*4;
-    starPos[i*3+2] = (Math.random()-0.5)*10;
+/* 💨 WIND */
+let windTime = 0;
+function getWind(x,z){
+    return Math.sin(windTime + x*0.5 + z*0.5)*0.05;
 }
-starsGeo.setAttribute('position', new THREE.BufferAttribute(starPos,3));
 
-const stars = new THREE.Points(
-    starsGeo,
-    new THREE.PointsMaterial({ size:0.03 })
+/* 🧍 FLOATING SPIRIT */
+const spirit = new THREE.Mesh(
+    new THREE.SphereGeometry(0.15,16,16),
+    new THREE.MeshBasicMaterial({color:0xffccff})
 );
+scene.add(spirit);
+
+/* ✨ PARTICLES */
+const geo = new THREE.BufferGeometry();
+const count = 800;
+const pos = new Float32Array(count*3);
+for(let i=0;i<count;i++){
+    pos[i*3]=(Math.random()-0.5)*10;
+    pos[i*3+1]=Math.random()*4;
+    pos[i*3+2]=(Math.random()-0.5)*10;
+}
+geo.setAttribute('position',new THREE.BufferAttribute(pos,3));
+const stars = new THREE.Points(geo,new THREE.PointsMaterial({size:0.03}));
 scene.add(stars);
 
-/* ------------------ ANIMATION ------------------ */
+/* CLICK */
+window.addEventListener('click',(e)=>{
+    mouse.x = (e.clientX / innerWidth)*2 -1;
+    mouse.y = -(e.clientY / innerHeight)*2 +1;
+
+    raycaster.setFromCamera(mouse,camera);
+    const hits = raycaster.intersectObjects(tulips,true);
+
+    if(hits.length){
+        const obj = hits[0].object.parent;
+        showMessage(obj.userData.message);
+    }
+});
+
+function showMessage(text){
+    const box = document.getElementById("msgBox");
+    box.innerText = text;
+    box.style.display="block";
+    setTimeout(()=>box.style.display="none",3000);
+}
+
+/* 🎵 MUSIC */
+const audio = new Audio("https://cdn.pixabay.com/audio/2022/03/15/audio_9c4f0c.mp3");
+audio.loop = true;
+
+document.getElementById("musicBtn").onclick = ()=>{
+    if(audio.paused) audio.play();
+    else audio.pause();
+};
+
+/* ANIMATE */
+let t = 0;
 function animate(){
     requestAnimationFrame(animate);
 
+    t += 0.01;
     windTime += 0.02;
 
-    tulips.forEach(t=>{
-        const sway = getWindOffset(t.position.x, t.position.z);
-        t.rotation.z = sway;
+    updateSky();
+
+    tulips.forEach(fl=>{
+        fl.rotation.z = getWind(fl.position.x, fl.position.z);
     });
+
+    spirit.position.set(
+        Math.sin(t)*2,
+        1.5 + Math.sin(t*2)*0.2,
+        Math.cos(t)*2
+    );
 
     stars.rotation.y += 0.001;
 
     controls.update();
     renderer.render(scene,camera);
-    labelRenderer.render(scene,camera);
 }
 animate();
 
-/* ------------------ RESIZE ------------------ */
+/* RESIZE */
 addEventListener('resize',()=>{
     camera.aspect = innerWidth/innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(innerWidth,innerHeight);
-    labelRenderer.setSize(innerWidth,innerHeight);
 });
 </script>
+
 </body>
 </html>
