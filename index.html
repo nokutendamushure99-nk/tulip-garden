@@ -3,27 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Enchanted Tulip Garden 💜</title>
+<title>Real Tulip Garden 💜</title>
 
 <style>
-body { margin:0; overflow:hidden; background:#050d1f; font-family:sans-serif;}
-
-.ui {
-    position:absolute;
-    top:15px;
-    left:15px;
-    z-index:10;
-}
-
-button {
-    padding:8px 14px;
-    border:none;
-    border-radius:20px;
-    background:rgba(255,255,255,0.2);
-    color:white;
-    cursor:pointer;
-}
-
+body { margin:0; overflow:hidden; background:#050d1f; }
 .messageBox {
     position:absolute;
     bottom:30px;
@@ -31,27 +14,21 @@ button {
     transform:translateX(-50%);
     padding:12px 20px;
     border-radius:30px;
-    background:rgba(0,0,0,0.5);
+    background:rgba(0,0,0,0.6);
     color:white;
     display:none;
-    backdrop-filter: blur(8px);
 }
 </style>
 </head>
 
 <body>
-
-<div class="ui">
-    <button id="musicBtn">🎵 Music</button>
-</div>
-
 <div class="messageBox" id="msgBox"></div>
 
 <script type="importmap">
 {
  "imports": {
-  "three": "https://unpkg.com/three@0.128.0/build/three.module.js",
-  "three/addons/": "https://unpkg.com/three@0.128.0/examples/jsm/"
+  "three": "https://unpkg.com/three@0.152.2/build/three.module.js",
+  "three/addons/": "https://unpkg.com/three@0.152.2/examples/jsm/"
  }
 }
 </script>
@@ -59,10 +36,11 @@ button {
 <script type="module">
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 /* SCENE */
 const scene = new THREE.Scene();
-scene.fog = new THREE.FogExp2(0x0a1f44, 0.02);
+scene.background = new THREE.Color("#0a1f44");
 
 /* CAMERA */
 const camera = new THREE.PerspectiveCamera(45, innerWidth/innerHeight,0.1,100);
@@ -71,31 +49,17 @@ camera.position.set(5,4,6);
 /* RENDERER */
 const renderer = new THREE.WebGLRenderer({antialias:true});
 renderer.setSize(innerWidth,innerHeight);
-renderer.shadowMap.enabled = true;
 document.body.appendChild(renderer.domElement);
 
 /* CONTROLS */
 const controls = new OrbitControls(camera, renderer.domElement);
-controls.enableDamping = true;
 
-/* LIGHT */
-scene.add(new THREE.AmbientLight(0x445577,0.7));
+/* LIGHTING (REALISTIC) */
+scene.add(new THREE.AmbientLight(0xffffff,0.6));
 
-const sun = new THREE.DirectionalLight(0xffe8c5,1.2);
-sun.position.set(5,8,3);
+const sun = new THREE.DirectionalLight(0xfff0cc,1.2);
+sun.position.set(5,10,5);
 scene.add(sun);
-
-/* DAY-NIGHT */
-let dayTime = 0;
-function updateSky(){
-    dayTime += 0.001;
-    const t = (Math.sin(dayTime)+1)/2;
-    scene.background = new THREE.Color().lerpColors(
-        new THREE.Color("#050d1f"),
-        new THREE.Color("#87ceeb"),
-        t
-    );
-}
 
 /* GROUND */
 const ground = new THREE.Mesh(
@@ -105,122 +69,64 @@ const ground = new THREE.Mesh(
 ground.rotation.x = -Math.PI/2;
 scene.add(ground);
 
+/* LOADER */
+const loader = new GLTFLoader();
+
+const tulips = [];
+const messages = [
+ "this one reminded me of you",
+ "you deserve soft things",
+ "i'd pick this one for you",
+ "gentle but strong 🌸"
+];
+
+/* LOAD MODEL */
+loader.load(
+'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Flower/glTF/Flower.gltf',
+(gltf)=>{
+    const model = gltf.scene;
+
+    for(let i=0;i<25;i++){
+        const clone = model.clone(true);
+
+        clone.position.set(
+            (Math.random()-0.5)*7,
+            0,
+            (Math.random()-0.5)*7
+        );
+
+        clone.scale.set(0.5,0.5,0.5);
+
+        clone.userData.message = messages[Math.floor(Math.random()*messages.length)];
+
+        scene.add(clone);
+        tulips.push(clone);
+    }
+
+    /* SPECIAL PURPLE */
+    const special = model.clone(true);
+    special.position.set(0,0,0);
+    special.scale.set(0.6,0.6,0.6);
+
+    special.traverse(child=>{
+        if(child.isMesh){
+            child.material = child.material.clone();
+            child.material.color.set(0xcd96ff);
+            child.material.emissive = new THREE.Color(0x9933ff);
+            child.material.emissiveIntensity = 0.6;
+        }
+    });
+
+    special.userData.message = "this one is different... just like you 💜";
+
+    scene.add(special);
+    tulips.push(special);
+});
+
 /* RAYCAST */
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
 
-/* MESSAGES */
-const messages = [
- "you matter more than you think",
- "this one reminded me of you",
- "soft things are still strong",
- "you deserve gentle love",
- "i'd pick this one for you"
-];
-
-/* 🌸 TULIP FUNCTION (REAL SHAPE) */
-function createTulip(color, special=false){
-    const group = new THREE.Group();
-
-    const stem = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.04,0.06,1.2,8),
-        new THREE.MeshStandardMaterial({color:0x5fad4a})
-    );
-    stem.position.y = 0.6;
-    group.add(stem);
-
-    const shape = new THREE.Shape();
-    shape.moveTo(0,0);
-    shape.bezierCurveTo(0.2,0.3, 0.25,0.8, 0,1.2);
-    shape.bezierCurveTo(-0.25,0.8, -0.2,0.3, 0,0);
-
-    const geometry = new THREE.ExtrudeGeometry(shape,{
-        depth:0.05,
-        bevelEnabled:false
-    });
-
-    const mat = new THREE.MeshStandardMaterial({
-        color,
-        roughness:0.3,
-        emissive: special ? 0x9933ff : color,
-        emissiveIntensity: special ? 0.5 : 0.08,
-        side:THREE.DoubleSide
-    });
-
-    for(let i=0;i<5;i++){
-        const petal = new THREE.Mesh(geometry, mat);
-        const angle = (i/5) * Math.PI * 2;
-
-        petal.position.y = 1.1;
-        petal.rotation.y = angle;
-        petal.rotation.x = Math.PI * 0.15;
-
-        group.add(petal);
-    }
-
-    for(let i=0;i<3;i++){
-        const petal = new THREE.Mesh(geometry, mat);
-        const angle = (i/3) * Math.PI * 2;
-
-        petal.scale.set(0.8,0.8,0.8);
-        petal.position.y = 1.15;
-        petal.rotation.y = angle + 0.5;
-        petal.rotation.x = Math.PI * 0.2;
-
-        group.add(petal);
-    }
-
-    group.userData.message = special
-        ? "this one is different... just like you 💜"
-        : messages[Math.floor(Math.random()*messages.length)];
-
-    return group;
-}
-
-/* FIELD */
-const tulips = [];
-const colors = [0xff4d4d,0xffd966,0xffffff];
-
-for(let i=0;i<30;i++){
-    const t = createTulip(colors[i%3]);
-    t.position.set((Math.random()-0.5)*7,0,(Math.random()-0.5)*7);
-    scene.add(t);
-    tulips.push(t);
-}
-
-/* SPECIAL PURPLE */
-const specialTulip = createTulip(0xcd96ff,true);
-specialTulip.position.set(0,0,0);
-scene.add(specialTulip);
-tulips.push(specialTulip);
-
-/* 💨 WIND */
-let windTime = 0;
-function getWind(x,z){
-    return Math.sin(windTime + x*0.5 + z*0.5)*0.05;
-}
-
-/* 🧍 FLOATING SPIRIT */
-const spirit = new THREE.Mesh(
-    new THREE.SphereGeometry(0.15,16,16),
-    new THREE.MeshBasicMaterial({color:0xffccff})
-);
-scene.add(spirit);
-
-/* ✨ PARTICLES */
-const geo = new THREE.BufferGeometry();
-const count = 800;
-const pos = new Float32Array(count*3);
-for(let i=0;i<count;i++){
-    pos[i*3]=(Math.random()-0.5)*10;
-    pos[i*3+1]=Math.random()*4;
-    pos[i*3+2]=(Math.random()-0.5)*10;
-}
-geo.setAttribute('position',new THREE.BufferAttribute(pos,3));
-const stars = new THREE.Points(geo,new THREE.PointsMaterial({size:0.03}));
-scene.add(stars);
-
-/* CLICK */
 window.addEventListener('click',(e)=>{
     mouse.x = (e.clientX / innerWidth)*2 -1;
     mouse.y = -(e.clientY / innerHeight)*2 +1;
@@ -229,8 +135,7 @@ window.addEventListener('click',(e)=>{
     const hits = raycaster.intersectObjects(tulips,true);
 
     if(hits.length){
-        const obj = hits[0].object.parent;
-        showMessage(obj.userData.message);
+        showMessage(hits[0].object.parent.userData.message);
     }
 });
 
@@ -241,38 +146,17 @@ function showMessage(text){
     setTimeout(()=>box.style.display="none",3000);
 }
 
-/* 🎵 MUSIC */
-const audio = new Audio("https://cdn.pixabay.com/audio/2022/03/15/audio_9c4f0c.mp3");
-audio.loop = true;
-
-document.getElementById("musicBtn").onclick = ()=>{
-    if(audio.paused) audio.play();
-    else audio.pause();
-};
-
-/* ANIMATE */
+/* WIND */
 let t = 0;
 function animate(){
     requestAnimationFrame(animate);
 
     t += 0.01;
-    windTime += 0.02;
-
-    updateSky();
 
     tulips.forEach(fl=>{
-        fl.rotation.z = getWind(fl.position.x, fl.position.z);
+        fl.rotation.z = Math.sin(t + fl.position.x)*0.03;
     });
 
-    spirit.position.set(
-        Math.sin(t)*2,
-        1.5 + Math.sin(t*2)*0.2,
-        Math.cos(t)*2
-    );
-
-    stars.rotation.y += 0.001;
-
-    controls.update();
     renderer.render(scene,camera);
 }
 animate();
