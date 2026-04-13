@@ -3,26 +3,25 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Real Tulip Garden 💜</title>
-
+<title>Tulip Garden 🌸</title>
 <style>
-body { margin:0; overflow:hidden; background:#050d1f; }
-.messageBox {
-    position:absolute;
-    bottom:30px;
-    left:50%;
-    transform:translateX(-50%);
-    padding:12px 20px;
-    border-radius:30px;
-    background:rgba(0,0,0,0.6);
-    color:white;
-    display:none;
+body { margin:0; overflow:hidden; background:#0a1f44; }
+#msg {
+ position:absolute;
+ bottom:20px;
+ left:50%;
+ transform:translateX(-50%);
+ background:rgba(0,0,0,0.6);
+ color:white;
+ padding:10px 20px;
+ border-radius:20px;
+ display:none;
 }
 </style>
 </head>
 
 <body>
-<div class="messageBox" id="msgBox"></div>
+<div id="msg"></div>
 
 <script type="importmap">
 {
@@ -38,134 +37,119 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-/* SCENE */
+/* BASIC SETUP */
 const scene = new THREE.Scene();
 scene.background = new THREE.Color("#0a1f44");
 
-/* CAMERA */
 const camera = new THREE.PerspectiveCamera(45, innerWidth/innerHeight,0.1,100);
-camera.position.set(5,4,6);
+camera.position.set(4,3,6);
 
-/* RENDERER */
 const renderer = new THREE.WebGLRenderer({antialias:true});
 renderer.setSize(innerWidth,innerHeight);
 document.body.appendChild(renderer.domElement);
 
-/* CONTROLS */
 const controls = new OrbitControls(camera, renderer.domElement);
 
-/* LIGHTING (REALISTIC) */
-scene.add(new THREE.AmbientLight(0xffffff,0.6));
-
-const sun = new THREE.DirectionalLight(0xfff0cc,1.2);
-sun.position.set(5,10,5);
-scene.add(sun);
+/* LIGHT */
+scene.add(new THREE.AmbientLight(0xffffff,0.7));
+const light = new THREE.DirectionalLight(0xffffff,1);
+light.position.set(5,10,5);
+scene.add(light);
 
 /* GROUND */
 const ground = new THREE.Mesh(
-    new THREE.CircleGeometry(8,32),
-    new THREE.MeshStandardMaterial({color:0x4caf50})
+ new THREE.CircleGeometry(8,32),
+ new THREE.MeshStandardMaterial({color:0x4caf50})
 );
 ground.rotation.x = -Math.PI/2;
 scene.add(ground);
 
 /* LOADER */
 const loader = new GLTFLoader();
-
 const tulips = [];
+
 const messages = [
- "this one reminded me of you",
- "you deserve soft things",
- "i'd pick this one for you",
- "gentle but strong 🌸"
+ "this one is for you",
+ "you deserve softness",
+ "gentle and rare 🌸"
 ];
 
-/* LOAD MODEL */
+/* TRY LOAD MODEL */
 loader.load(
-'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Flower/glTF/Flower.gltf',
+"https://cdn.jsdelivr.net/gh/KhronosGroup/glTF-Sample-Models@master/2.0/Flower/glTF/Flower.gltf",
+
 (gltf)=>{
-    const model = gltf.scene;
+ const model = gltf.scene;
 
-    for(let i=0;i<25;i++){
-        const clone = model.clone(true);
+ for(let i=0;i<20;i++){
+   const t = model.clone(true);
+   t.position.set((Math.random()-0.5)*6,0,(Math.random()-0.5)*6);
+   t.scale.set(0.5,0.5,0.5);
+   t.userData.msg = messages[Math.floor(Math.random()*messages.length)];
 
-        clone.position.set(
-            (Math.random()-0.5)*7,
-            0,
-            (Math.random()-0.5)*7
-        );
+   scene.add(t);
+   tulips.push(t);
+ }
 
-        clone.scale.set(0.5,0.5,0.5);
+},
 
-        clone.userData.message = messages[Math.floor(Math.random()*messages.length)];
+undefined,
 
-        scene.add(clone);
-        tulips.push(clone);
-    }
+/* FALLBACK (IMPORTANT) */
+()=>{
+ console.log("model failed, using backup flowers");
 
-    /* SPECIAL PURPLE */
-    const special = model.clone(true);
-    special.position.set(0,0,0);
-    special.scale.set(0.6,0.6,0.6);
+ for(let i=0;i<20;i++){
+   const geo = new THREE.ConeGeometry(0.2,0.5,6);
+   const mat = new THREE.MeshStandardMaterial({color:0xff6699});
+   const flower = new THREE.Mesh(geo,mat);
 
-    special.traverse(child=>{
-        if(child.isMesh){
-            child.material = child.material.clone();
-            child.material.color.set(0xcd96ff);
-            child.material.emissive = new THREE.Color(0x9933ff);
-            child.material.emissiveIntensity = 0.6;
-        }
-    });
+   flower.position.set((Math.random()-0.5)*6,0.25,(Math.random()-0.5)*6);
+   flower.userData.msg = "still for you 🌸";
 
-    special.userData.message = "this one is different... just like you 💜";
-
-    scene.add(special);
-    tulips.push(special);
+   scene.add(flower);
+   tulips.push(flower);
+ }
 });
 
-/* RAYCAST */
+/* CLICK */
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
 
-window.addEventListener('click',(e)=>{
-    mouse.x = (e.clientX / innerWidth)*2 -1;
-    mouse.y = -(e.clientY / innerHeight)*2 +1;
+window.addEventListener("click",(e)=>{
+ mouse.x = (e.clientX/innerWidth)*2-1;
+ mouse.y = -(e.clientY/innerHeight)*2+1;
 
-    raycaster.setFromCamera(mouse,camera);
-    const hits = raycaster.intersectObjects(tulips,true);
+ raycaster.setFromCamera(mouse,camera);
+ const hit = raycaster.intersectObjects(tulips,true);
 
-    if(hits.length){
-        showMessage(hits[0].object.parent.userData.message);
-    }
+ if(hit.length){
+   const msg = document.getElementById("msg");
+   msg.innerText = hit[0].object.parent?.userData.msg || hit[0].object.userData.msg;
+   msg.style.display="block";
+   setTimeout(()=>msg.style.display="none",2500);
+ }
 });
 
-function showMessage(text){
-    const box = document.getElementById("msgBox");
-    box.innerText = text;
-    box.style.display="block";
-    setTimeout(()=>box.style.display="none",3000);
-}
-
-/* WIND */
-let t = 0;
+/* ANIMATE */
+let t=0;
 function animate(){
-    requestAnimationFrame(animate);
+ requestAnimationFrame(animate);
+ t+=0.01;
 
-    t += 0.01;
+ tulips.forEach(f=>{
+   f.rotation.z = Math.sin(t + f.position.x)*0.05;
+ });
 
-    tulips.forEach(fl=>{
-        fl.rotation.z = Math.sin(t + fl.position.x)*0.03;
-    });
-
-    renderer.render(scene,camera);
+ renderer.render(scene,camera);
 }
 animate();
 
 /* RESIZE */
-addEventListener('resize',()=>{
-    camera.aspect = innerWidth/innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(innerWidth,innerHeight);
+addEventListener("resize",()=>{
+ camera.aspect = innerWidth/innerHeight;
+ camera.updateProjectionMatrix();
+ renderer.setSize(innerWidth,innerHeight);
 });
 </script>
 
